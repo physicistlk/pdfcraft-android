@@ -67,7 +67,9 @@ use std::time::Duration;
 
 use pdfcraft_ui_egui::PdfCraftApp;
 
+mod clipboard;
 mod file_picker;
+mod intents;
 mod modifiers;
 mod prefs_watch;
 mod touch_scroll;
@@ -182,6 +184,13 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
     let data_dir = app.internal_data_path().unwrap_or_else(|| PathBuf::from("."));
     let _ = std::fs::create_dir_all(&data_dir);
     let _ = DATA_DIR.set(data_dir.clone());
+    // The system clipboard goes through the same Activity handle as the rest of the
+    // platform (see `clipboard`).
+    clipboard::install(&app);
+    intents::install(&app);
+    // *Create ▸ Clipboard* reads it through this crate's own hook: `arboard` has no Android
+    // backend, and the JNI call lives in this shell (see `clipboard`).
+    pdfcraft_ui_egui::install_clipboard_text(clipboard::text);
     init_logging(&data_dir);
     log::info!("PdfCraft {} starting on Android; data dir {}", env!("CARGO_PKG_VERSION"), data_dir.display());
     // The app's external files directory: always readable and writable with no permission, so the
@@ -230,6 +239,7 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
                 modifiers: modifiers::Tracked::default(),
                 touch: touch_scroll::TouchScroll::default(),
                 prefs: prefs_watch::Writer::new(prefs_file(), PREFS_EVERY),
+    pending_launch: intents::launch(),
             }))
         }),
     );
@@ -252,6 +262,7 @@ struct Shell {
     /// gives that ending, so a swipe from Recents would otherwise take every preference with it
     /// (see [`prefs_watch`]).
     prefs: prefs_watch::Writer,
+    pending_launch: Option<intents::LaunchIntent>,
     /// Modifier keys, tracked here because the platform never reports them: winit's Android
     /// backend sends no `ModifiersChanged` at all, which is why Shift+click and every Ctrl
     /// shortcut are dead without this (see `modifiers`).
@@ -262,6 +273,15 @@ struct Shell {
 
 impl eframe::App for Shell {
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if let Some(launch) = self.pending_launch.take() {
+            match launch {
+                intents::LaunchIntent::OpenFile(path) => { let _ = self.inner.open_path(path.to_string_lossy().as_ref()); }
+                intents::LaunchIntent::ImportText(text) => {
+                    let path = std::env::temp_dir().join("shared.txt");
+                    if std::fs::write(&path, text).is_ok() { let _ = self.inner.open_path(path.to_string_lossy().as_ref()); }
+                }
+            }
+        }
         eframe::App::logic(&mut self.inner, ctx, frame);
         if self.prefs.due() {
             let bytes = prefs_bytes(&self.inner);
@@ -270,6 +290,13 @@ impl eframe::App for Shell {
     }
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        for event in &mut raw.events {
+            if let egui::Event::Key { key, .. } = event
+                && *key == egui::Key::BrowserBack
+            {
+                *key = egui::Key::Escape;
+            }
+        }
         // Before the app, so the frame it sees already has the modifiers a desktop backend would
         // have reported (see `modifiers`).
         let modifiers = self.modifiers.apply(raw);
@@ -277,6 +304,15 @@ impl eframe::App for Shell {
         // all, which is why nothing scrolled. A two-finger drag becomes one here (see
         // `touch_scroll`).
         self.touch.apply(raw, modifiers);
+        let lost_focus = raw.viewports.values().any(|v| v.focused == Some(false));
+        if lost_focus {
+            let bytes = prefs_bytes(&self.inner);
+            self.prefs.store_now(&bytes);
+        }
+        // Then the clipboard keys: egui-winit could not turn them into Copy/Cut/Paste
+        // because the backend never reports Modifiers, so they are still ordinary key
+        // presses here (see `clipboard::shortcuts`).
+        clipboard::shortcuts(raw);
         eframe::App::raw_input_hook(&mut self.inner, ctx, raw);
     }
 
@@ -284,6 +320,9 @@ impl eframe::App for Shell {
         eframe::App::ui(&mut self.inner, ui, frame);
         // After the app, so the picker floats above the pages and its docked panels.
         file_picker::draw(ui.ctx());
+        // After the app: this is the one place that sees egui's CopyText before egui-winit
+        // consumes it, and puts it on the system clipboard (see `clipboard::publish`).
+        clipboard::publish(ui.ctx());
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {

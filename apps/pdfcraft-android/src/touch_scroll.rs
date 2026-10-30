@@ -98,6 +98,11 @@ impl TouchScroll {
                 unit: egui::MouseWheelUnit::Point,
                 delta,
                 phase: egui::TouchPhase::Move,
+                // These events are synthesized from a two-finger drag on a touch screen, which is
+                // not a trackpad and not a physical wheel. `Unknown` keeps egui on the plain
+                // wheel path (the one egui 0.36 had for every wheel) instead of the trackpad
+                // smoothing, which expects a device that reports its own phase.
+                source: egui::MouseWheelSource::Unknown,
                 modifiers,
             });
         } else if self.scrolling && !gesture {
@@ -108,6 +113,7 @@ impl TouchScroll {
                 unit: egui::MouseWheelUnit::Point,
                 delta: egui::Vec2::ZERO,
                 phase: egui::TouchPhase::End,
+                source: egui::MouseWheelSource::Unknown,
                 modifiers,
             });
         }

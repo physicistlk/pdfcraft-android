@@ -18,6 +18,10 @@ crate-type = ["cdylib"]
 # Omit `[lints] workspace = true`: the shell needs the `#[unsafe(no_mangle)]` entry point, which
 # the workspace's `unsafe_code` lint forbids, and nothing else here wants the lints.
 [dependencies]
+# The system clipboard (`src/clipboard.rs`) is a JNI call to `ClipboardManager`; jni 0.22 is
+# the version android-activity itself depends on, so this unifies rather than compiling a second
+# layer.
+jni = "0.22"
 pdfcraft-ui-egui = { workspace = true }
 egui = { workspace = true }
 log = { workspace = true }

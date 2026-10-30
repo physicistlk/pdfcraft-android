@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026-10-30 — The system clipboard (text)
+
+| | |
+|---|---|
+| APK | `pdfcraft-0.15.0-arm64-v8a-20261030.apk` — sha256 in `SHA256SUMS.txt` beside the build |
+| Package | `ai.storyteller.pdfcraft` — versionName `0.15.0`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+
+### Changed
+- **The system clipboard works for text (`src/clipboard.rs`).** Ctrl+C/X/V now produce
+  `Event::Copy`/`Cut`/`Paste` (the Android backend never reports modifiers, so `egui-winit` never
+  did), Paste reads `ClipboardManager` through JNI, and `OutputCommand::CopyText` is written back
+  with `ClipData.newPlainText`.
+- **Create ▸ Clipboard reads text from the system clipboard.** A new
+  `pdfcraft_ui_egui::install_clipboard_text(reader)` hook (in `workflows/create_ui.rs`, re-exported
+  from `lib.rs`) lets the shell supply the reader; the command creates a PDF from the text. Images
+  and files are still out of reach on Android, and Copy Image in Original Format still says so.
+
+## Unreleased — 2026-10-28 (upstream 0.15.0)
+
+| | |
+|---|---|
+| APK | `pdfcraft-0.15.0-arm64-v8a-20261028.apk` — built and signed locally, not published |
+| Built from | upstream `storytold/pdfcraft` @ `75360d1d7db06fed974f48c914d4c04132757187` (tag `v0.15.0`, the newest stable release on 2026-10-28) + `patches/0001-pdfcraft-android-port.patch` + `apps/pdfcraft-android/` |
+| Package | `ai.storyteller.pdfcraft` — unchanged; versionName `0.15.0`, versionCode `16780288`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+| Signature | local test key (different from the published v0.1.0–v0.1.2 key) |
+
+### Changed
+- **Upstream moved from 0.6.0 to 0.15.0** (2578 commits between the pins). The port's shape is
+  unchanged — the `rfd` name is still resolved inside `crates/ui-egui` rather than in `Cargo.toml`,
+  because Cargo refuses a dependency whose source path differs per target — but the patch was
+  re-derived against the new tree instead of being forced onto it:
+  - `crates/ui-egui/src/` was reorganised upstream (`src/pickers.rs` → `src/platform/pickers.rs`,
+    `src/create_ui.rs` → `src/workflows/create_ui.rs`, and so on), so the 22 patched files became
+    25 (the same work, spread over the new layout).
+  - The `rfd` call sites went from 42 to 50; each one now says `crate::rfd::…`.
+  - `arboard` (the OS clipboard) is now used in four files rather than two, so the Android
+    exclusion was applied to all of them. Copy Image in Original Format has an explicit Android
+    arm that says the clipboard is out of reach instead of failing silently.
+  - `egui` moved from 0.36 to 0.37, which added a `source` to `Event::MouseWheel`; the synthesised
+    two-finger scroll says `MouseWheelSource::Unknown`, which keeps egui on the plain wheel path.
+  - The upstream `Services` struct that the README describes no longer exists; PdfCraft reaches
+    the platform through `crate::rfd` and the `PdfCraftApp` itself, which is still an
+    `eframe::App`, so the shell crate's structure is unaffected.
+
+### Not changed
+- The Android package id (`ai.storyteller.pdfcraft`), the min/target SDK levels, the permissions,
+  the theme resources, the icon, and every Android-specific fix in the port (picker, modifier
+  keys, two-finger scrolling, preferences written while the app runs, Activity not recreated on
+  configuration change).
+
 ## v0.1.2 — 2026-10-13 (Ctrl shortcuts)
 
 | | |

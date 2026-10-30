@@ -1,13 +1,87 @@
 # Port notes — PdfCraft on Android
 
 Upstream: [`storytold/pdfcraft`](https://github.com/storytold/pdfcraft) @
-`3d2bdfe71ada10f6bc39afc680dce61bbf080cbc` (v0.6.0)
-Published APK: `pdfcraft-0.6.0-arm64-v8a-v3.apk`
+`75360d1d7db06fed974f48c914d4c04132757187` (v0.15.0 — was `3d2bdfe71ada10f6bc39afc680dce61bbf080cbc`, v0.6.0)
+Published APK: `pdfcraft-0.6.0-arm64-v8a-v3.apk` (v0.1.0–v0.1.2, upstream 0.6.0);
+local build against upstream 0.15.0: `pdfcraft-0.15.0-arm64-v8a-20261028.apk`
 
 The port is `apps/pdfcraft-android/` (`src/lib.rs` 289 lines, `src/file_picker.rs` 403,
-`src/modifiers.rs` 202, `src/prefs_watch.rs` 134) plus **22 upstream files** — the largest patch in this
-set, and almost all of it is one problem: PdfCraft calls `rfd` directly instead of going through a
-`Services` seam, and `rfd` does not exist on Android.
+`src/modifiers.rs` 202, `src/prefs_watch.rs` 134, `src/clipboard.rs`) plus **22 upstream files** — the
+largest patch in this set, and almost all of it is one problem: PdfCraft calls `rfd` directly instead
+of going through a `Services` seam, and `rfd` does not exist on Android.
+
+## 2026-10-30 — Trackpad wheel + pen hover (`vendor/winit`)
+
+This port previously used the git winit, whose Android backend dropped `MotionAction::Scroll`
+and `MotionAction::HoverMove`. It now vendors the same patched winit the WordCraft and
+DeckCraft ports ship (copied into `vendor/winit/`, with `Cargo.toml` resolving winit from
+it), so the backend forwards those events. The `Cargo.toml` change joins this port's patch
+(26 tracked files).
+
+## 2026-10-30 — Flush preferences on suspend (`raw_input_hook`)
+
+A lost-focus frame now writes `ui.json` with `store_now`, so a swipe from Recents (or a paused
+Activity being killed) no longer takes the preferences with it.
+
+## 2026-10-30 — Open-with and share intents (`src/intents.rs`)
+
+**The complaint:** a PDF tapped in a file manager, or shared from another app, never reached PdfCraft;
+and there was no way to hand the current document to another app.
+
+`src/intents.rs` covers the half that does not need `startActivityForResult`:
+
+- **Incoming `ACTION_VIEW`** — the launching URI is read at startup and copied out of a
+  `content://` URI into the cache directory; the shell opens it on its first frame (`open_path`).
+- **Incoming `ACTION_SEND`** — `EXTRA_TEXT` and `EXTRA_STREAM` are handled the same way.
+- **Outgoing `ACTION_SEND`** — `intents::share_text` starts a chooser; `share_file` is provided but
+  needs a `FileProvider` entry to work on Android 7+.
+
+The launching intent is read in `android_main` and consumed once in `Shell::logic`.
+
+**Scope:** opening a file handed to the app, and sharing text. SAF pickers remain deferred (no
+`startActivityForResult` in `android-activity` 0.6.1); the in-app picker is still the way to open
+or save.
+
+**Checked:** the module's host test passes, the crate compiles for `aarch64-linux-android`, and the
+host suite is 16/16. The JNI intent path has not run on a device.
+
+## 2026-10-30 — The system clipboard (`src/clipboard.rs`)
+
+**The complaint:** copy and paste worked only *inside* the app, and *Create ▸ Clipboard* always said
+the clipboard was empty — even with text on it.
+
+This port had no clipboard at all: `arboard` is compiled out on Android (§4), and winit's Android
+backend has no clipboard either, so `egui-winit` kept its in-app simulated clipboard. Modifiers are
+not reported by the backend either (§5), so `egui-winit` never turned Ctrl+C/X/V into
+`Event::Copy`/`Cut`/`Paste` — the keys arrived as ordinary presses and no clipboard event was ever
+produced.
+
+`src/clipboard.rs` supplies four pieces, and a small hook in the UI crate:
+
+- `install(&app)` — this thread's Activity handle, captured before `run_native`.
+- `shortcuts(raw)` — in `raw_input_hook`, after the touch bridge: a plain Ctrl+C/X/V becomes
+  `Event::Copy`/`Cut`/`Paste` and the press is consumed, as on the desktop. Ctrl+V reads the
+  **system** clipboard and pushes nothing when it is empty. Ctrl+Shift/Ctrl+Alt go to the app.
+- `publish(ctx)` — after the app's `ui`: every `OutputCommand::CopyText` this frame is written with
+  `ClipData.newPlainText` + `setPrimaryClip`, and left in the command list so egui-winit's in-app
+  copy still happens.
+- `text()` — the read half.
+
+The hook is a new `pdfcraft_ui_egui::install_clipboard_text(reader)` (in `workflows/create_ui.rs`,
+re-exported from `lib.rs`): *Create ▸ Clipboard* is a menu command with no host handle in scope, so
+the shell installs its reader once and `read_clipboard()` on Android asks it for text. It returns
+`Clip::Text`, and the existing create-from-text path does the rest. Images still have no Android
+reader, so a text clip is the only thing that command can now take — which is more than before.
+
+A clipboard read Android refuses (Android 10+ allows reads only while the app is focused) is logged
+and cleared, and answers "nothing".
+
+**Scope:** plain text. Copying an image as an image, and Copy Image in Original Format as a *file*,
+remain out of reach on Android (§4); the app already says so.
+
+**Checked:** eight unit tests in `clipboard.rs` plus the UI crate's existing suite pass on the host;
+`cargo check -p pdfcraft-android --target aarch64-linux-android` is clean. The JNI path has not run on
+a device — none was connected for this build.
 
 ## 1. The shell crate
 
@@ -74,9 +148,10 @@ its parent.
 
 - **`arboard`** (the OS clipboard) fails with `cannot find Set in module platform`. It is dropped from
   the Android build entirely (`[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]`),
-  and the two places that ask for a clipboard take the branch the browser build already takes — the
-  snapshot is still taken, the system-wide clipboard is simply out of reach, and the caller already
-  says so out loud.
+  and the places that ask for a clipboard keep the branch the browser build already takes — the
+  snapshot is still taken, and an *image or file* clipboard is simply out of reach.
+  **Text is different since 2026-10-30:** the shell supplies a JNI reader (below), so *Create ▸
+  Clipboard* reads text from the system clipboard and *Ctrl+C/X/V* work in text fields.
 - **`eframe` itself, declared twice.** `accesskit` and `android-native-activity` are mutually
   exclusive in eframe (`compile_error!("`accesskit` feature is only available with
   `android-game-activity`")`), and Cargo takes features as a **union over the whole graph** — so
@@ -126,14 +201,20 @@ same two-variant edge-to-edge theme as the siblings — `targetSdkVersion 35` pu
 transparent status bar on Android 15, and winit 0.30 has no safe-area API — and `res/mipmap-*` carries
 the launcher icon.
 
-## Upstream files this port changes (22)
+## Upstream files this port changes (25)
 
 | Group | Files | Change |
 |---|---|---|
 | `crates/ui-egui/Cargo.toml` | 1 | `eframe` declared twice (`accesskit` off for Android), `rfd`/`arboard` moved to a non-Android target table |
-| `crates/ui-egui/src/lib.rs` | 1 | `pub mod rfd;` added |
+| `crates/ui-egui/src/lib.rs` | 1 | `pub mod rfd;` added; `install_clipboard_text` re-exported for Android |
 | `crates/ui-egui/src/rfd.rs`, `rfd_android.rs` | 2 | **new** — the name `crate::rfd`: real `rfd` off-Android, host-backed stand-in on it |
 | call sites in `actions_ui, combine_ui, comment_props, content_ui, create_ui, editing, export_ui, files, fill_sign, folders_ui, marks_ui, measure_ui, ocr_ui, pickers, print_ui, sign_ui, stamps_ui, zoom_snap` | 18 | `rfd::` → `crate::rfd::`; `arboard` uses `cfg`-gated to the branch the web build already takes |
+
+> Against upstream **0.15.0** the same work touches **25** files: upstream reorganised
+> `crates/ui-egui/src/` into sub-folders (`src/pickers.rs` → `src/platform/pickers.rs`,
+> `src/create_ui.rs` → `src/workflows/create_ui.rs`, `src/zoom_snap.rs` → `src/canvas/zoom_snap.rs`,
+> `src/sign_ui.rs` → `src/tools/sign_ui.rs`, `src/files.rs` → `src/workflows/files.rs`, …), so the
+> call sites moved with it. See §9.
 
 ## 2026-10-13 — Two-finger scrolling (and the wheel Android never sends)
 
@@ -191,6 +272,26 @@ recomputed. Nothing else about the modifier handling changed.
   authority (so a modifier held while the app goes to the background does not stick).
   The same tracker is in all four ports of this set; it is verified end-to-end in WordCraft
   (`Ctrl+A` selects the text, `Ctrl+B` emboldens it). This app's own shortcuts are the tablet check.
+
+## 9. The move from upstream 0.6.0 to 0.15.0 (2026-10-28)
+
+The port's shape survives the jump; the patch had to be re-derived rather than forced. What
+changed upstream, and what the port did about it:
+
+| Upstream change | What the port did |
+|---|---|
+| `crates/ui-egui/src/` reorganised into sub-folders (`app/`, `dialogs/`, `editing/`, `home/`, `platform/`, `tools/`, `workflows/`) — `src/pickers.rs` became `src/platform/pickers.rs`, `src/create_ui.rs` became `src/workflows/create_ui.rs`, `src/zoom_snap.rs` became `src/canvas/zoom_snap.rs` | The same 22 files of work were re-applied at the new paths: 25 files in the patch (22 changed + `rfd.rs` + `rfd_android.rs` new, of which 2 are counted in the 25). |
+| The `rfd` call sites went from 42 to 50 (new workflows added) | Each new call site was rewritten to `crate::rfd::…` exactly like the old ones; the shim needed no new API, because upstream still only uses `AsyncFileDialog::new`, `add_filter`, `set_title`, `set_file_name`, `set_directory`, `pick_file`, `pick_files`, `pick_folder`, `save_file` and `FileHandle` — all of which the Android stand-in already implements. |
+| `arboard` (the OS clipboard) is now used in **four** files, not two: `canvas/image_pick.rs`, `canvas/zoom_snap.rs`, `tools/content_ui.rs`, `workflows/create_ui.rs` | All four are `cfg`-gated away from Android, as the two were before. Copy Image in Original Format needed a third arm (`put_file_on_clipboard`): on Android it says the clipboard is out of reach rather than failing at runtime, and the three helpers it alone used (`clipboard_dir`, `is_copied_image_name`, `write_clipboard_file`) are gated with it, so the Android build has no dead code. |
+| `egui` 0.36 → 0.37 | `Event::MouseWheel` gained a `source` field. The synthesised two-finger scroll says `MouseWheelSource::Unknown`, which keeps egui on the plain wheel path (the one 0.36 had for every wheel) instead of the trackpad smoothing, which expects a device that reports its own phase. |
+| The `Services` struct the README describes no longer exists | PdfCraft never used it: it reaches the platform through `crate::rfd` and through `PdfCraftApp`, which is still an `eframe::App`. The shell crate's structure (`Shell` forwarding to the app, `raw_input_hook`, `logic`, `save`) is unaffected. |
+| `crates/ui-egui/Cargo.toml` gained `accesskit` in the `eframe` features and a `clipboard` feature | The double declaration was kept and extended with `clipboard`: `accesskit` off for Android, on everywhere else. `rfd` and `arboard` moved to a `cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))` table. |
+| The build environment needs an NDK C toolchain (`aws-lc-sys`) — unchanged | `scripts/android-env-linux.sh` was added, because `scripts/android-env.sh` is the port author's Windows/MSYS file with `C:\` paths hard-coded. The Linux script takes the SDK/NDK/JDK from the environment and has no machine-specific path in it. |
+
+What did **not** change: the Android package id, the min/target SDK levels, the permissions, the
+theme resources, the icon, and every Android-specific fix in the port (the picker, the modifier
+tracker, two-finger scrolling, the preferences written while the app runs, the Activity that is
+not recreated on a configuration change).
 
 ## What is deliberately *not* in the patch
 
