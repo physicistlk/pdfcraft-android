@@ -1,7 +1,7 @@
 # Port notes — PdfCraft on Android
 
 Upstream: [`storytold/pdfcraft`](https://github.com/storytold/pdfcraft) @
-`75360d1d7db06fed974f48c914d4c04132757187` (v0.15.0 — was `3d2bdfe71ada10f6bc39afc680dce61bbf080cbc`, v0.6.0)
+`24bb8530` (v0.16.1 — was `3d2bdfe71ada10f6bc39afc680dce61bbf080cbc`, v0.6.0)
 Published APK: `pdfcraft-0.6.0-arm64-v8a-v3.apk` (v0.1.0–v0.1.2, upstream 0.6.0);
 local build against upstream 0.15.0: `pdfcraft-0.15.0-arm64-v8a-20261028.apk`
 

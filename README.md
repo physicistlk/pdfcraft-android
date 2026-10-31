@@ -37,7 +37,7 @@ JDK 21, and `cargo install cargo-apk`.
 ```bash
 git clone https://github.com/storytold/pdfcraft.git
 cd pdfcraft
-git fetch --depth 1 origin 75360d1d7db06fed974f48c914d4c04132757187
+git fetch --depth 1 origin 24bb8530
 git checkout FETCH_HEAD                        # the exact commit this port targets
 git apply -3 /path/to/0001-pdfcraft-android-port.patch
 cp -r /path/to/pdfcraft-android apps/             # the shell crate from this repository
@@ -72,7 +72,7 @@ A tick means the check was *run*, not inferred; the wording says how far it goes
 
 | Claim | How it was checked | Result |
 |---|---|---|
-| `patches/…patch` applies to a clean checkout of the pin | fresh `git init` + `git fetch --depth 1 origin 75360d1d7db06fed974f48c914d4c04132757187` + `git apply --check` | ✅ applies cleanly |
+| `patches/…patch` applies to a clean checkout of the pin | fresh `git init` + `git fetch --depth 1 origin 24bb8530` + `git apply --check` | ✅ applies cleanly |
 | The assembled tree equals the tree the APK was built from | the patch in `patches/` compared byte-for-byte with `git diff` of the built worktree, and `diff -r` of the port crate in this repository against the one in that worktree | ✅ identical, nothing differing |
 | The port crate compiles for Android | `cargo check -p pdfcraft-android --target aarch64-linux-android` in the tree the APK was built from | ✅ exit 0 |
 | The port crate's own tests | `cargo test -p pdfcraft-android --lib` in the same tree | ✅ 15/15 pass (clipboard rewriting, modifier tracking, two-finger scrolling) |
