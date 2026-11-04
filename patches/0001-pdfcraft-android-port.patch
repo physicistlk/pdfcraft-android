@@ -1,18 +1,18 @@
 diff --git a/Cargo.toml b/Cargo.toml
-index 771f4c96..0764d149 100644
+index 4b98f47c..f832202c 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -154,4 +154,4 @@ egui_system_font_provider = { git = "https://github.com/storytold/egui.git", rev
+@@ -158,4 +158,4 @@ egui_system_font_provider = { git = "https://github.com/storytold/egui.git", rev
  eframe = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
  egui_demo_lib = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
  egui_inspection = { git = "https://github.com/storytold/egui.git", rev = "6d518fc799681571963842f95b55a6b68431b15a" }
 -winit = { git = "https://github.com/storytold/winit.git", rev = "a517b3846ee8457d84ee4975110bfda6797c44dc" }
 +winit = { path = "vendor/winit" }
 diff --git a/crates/ui-egui/Cargo.toml b/crates/ui-egui/Cargo.toml
-index 804b5ea2..b077f986 100644
+index c859b93c..8388fa1d 100644
 --- a/crates/ui-egui/Cargo.toml
 +++ b/crates/ui-egui/Cargo.toml
-@@ -25,7 +25,7 @@ pdfcraft-model = { workspace = true }
+@@ -28,7 +28,7 @@ pdfcraft-model = { workspace = true }
  pdfcraft-platform = { workspace = true }
  egui = { workspace = true, features = ["bytemuck", "default_fonts", "monochrome_emoji_fonts"] }
  egui_extras = { workspace = true }
@@ -21,7 +21,7 @@ index 804b5ea2..b077f986 100644
  serde = { workspace = true }
  serde_json = { workspace = true }
  log = { workspace = true }
-@@ -37,7 +37,8 @@ web-time = { workspace = true }
+@@ -40,7 +40,8 @@ web-time = { workspace = true }
  # Hands rendered rasters to egui as its pixels, without copying; already in the tree through egui and wgpu.
  bytemuck = { version = "1", features = ["extern_crate_alloc"] }
  
@@ -31,7 +31,7 @@ index 804b5ea2..b077f986 100644
  png = "0.18"
  base64 = "0.23"
  # Unicode bidi paragraph segmentation for right-to-left comment wrapping; egui 0.37's epaint owns
-@@ -51,10 +52,30 @@ skrifa = "0.44"
+@@ -54,10 +55,30 @@ skrifa = "0.44"
  craft-update = { workspace = true }
  # Control-channel tokens.
  getrandom = "0.4"
@@ -64,11 +64,27 @@ index 804b5ea2..b077f986 100644
  
  [target.'cfg(all(unix, not(target_os = "macos"), not(target_arch = "wasm32")))'.dependencies]
  # Discover configured font directories without linking libfontconfig or running a subprocess.
+diff --git a/crates/ui-egui/src/app/clipboard.rs b/crates/ui-egui/src/app/clipboard.rs
+index 9319368d..bc914591 100644
+--- a/crates/ui-egui/src/app/clipboard.rs
++++ b/crates/ui-egui/src/app/clipboard.rs
+@@ -73,9 +73,9 @@ impl PdfCraftApp {
+         }
+         if paste {
+             let has_override_image = matches!(self.clipboard_override, Some(crate::create_ui::Clip::Image { .. }));
+-            #[cfg(not(target_arch = "wasm32"))]
++            #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+             let system_has_text = if !has_override_image && self.system_clipboard { crate::os_clipboard::has_text() } else { false };
+-            #[cfg(target_arch = "wasm32")]
++            #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+             let system_has_text = false;
+ 
+             if !has_override_image && system_has_text {
 diff --git a/crates/ui-egui/src/app/files.rs b/crates/ui-egui/src/app/files.rs
-index 3c68dc56..719418fe 100644
+index 99910470..1d954beb 100644
 --- a/crates/ui-egui/src/app/files.rs
 +++ b/crates/ui-egui/src/app/files.rs
-@@ -344,7 +344,7 @@ impl PdfCraftApp {
+@@ -355,7 +355,7 @@ impl PdfCraftApp {
          }
          #[cfg(not(target_arch = "wasm32"))]
          {
@@ -77,7 +93,7 @@ index 3c68dc56..719418fe 100644
              let target = self.active_ids().map(|(_, id)| id);
              self.ask_one(pickers::Ask::File(dialog), target, |app, path| app.attach_file(&path));
          }
-@@ -385,7 +385,7 @@ impl PdfCraftApp {
+@@ -396,7 +396,7 @@ impl PdfCraftApp {
              (Ok(bytes), false) => {
                  #[cfg(not(target_arch = "wasm32"))]
                  self.ask_one(
@@ -86,7 +102,7 @@ index 3c68dc56..719418fe 100644
                      None,
                      move |app, path| match crate::editing::write_atomically(&path.to_string_lossy(), &bytes) {
                          Ok(()) => app.notify_fmt("Saved {name}", &[("name", &path.display().to_string())]),
-@@ -606,8 +606,8 @@ impl PdfCraftApp {
+@@ -704,8 +704,8 @@ impl PdfCraftApp {
  
      /// The File ▸ Open picker: PDFs, and images and text that become PDFs.
      #[cfg(not(target_arch = "wasm32"))]
@@ -97,7 +113,7 @@ index 3c68dc56..719418fe 100644
      }
  
      pub fn open_dialog(&mut self) {
-@@ -615,7 +615,7 @@ impl PdfCraftApp {
+@@ -713,7 +713,7 @@ impl PdfCraftApp {
          #[cfg(not(target_arch = "wasm32"))]
          self.pick(
              pickers::PickFor::Open,
@@ -106,7 +122,7 @@ index 3c68dc56..719418fe 100644
              true,
          );
          // Browsers pick files asynchronously; the bytes arrive through `inbox`.
-@@ -624,7 +624,7 @@ impl PdfCraftApp {
+@@ -722,7 +722,7 @@ impl PdfCraftApp {
              let inbox = self.inbox.clone();
              let ctx = self.ctx.clone();
              wasm_bindgen_futures::spawn_local(async move {
@@ -116,10 +132,10 @@ index 3c68dc56..719418fe 100644
                      .add_filter(tl!("Images and text"), &create_ui::CONVERTIBLE)
                      .pick_file()
 diff --git a/crates/ui-egui/src/canvas/image_pick.rs b/crates/ui-egui/src/canvas/image_pick.rs
-index 403e9836..5402e44b 100644
+index cc938170..145543b0 100644
 --- a/crates/ui-egui/src/canvas/image_pick.rs
 +++ b/crates/ui-egui/src/canvas/image_pick.rs
-@@ -83,7 +83,7 @@ fn safe_name(s: &str) -> String {
+@@ -91,7 +91,7 @@ pub(crate) fn safe_name(s: &str) -> String {
  /// `%LOCALAPPDATA%\PdfCraft\Clipboard` (Windows), or `$XDG_CACHE_HOME/pdfcraft/clipboard` /
  /// `~/.cache/pdfcraft/clipboard` (others). Never the shared temporary folder, where another user
  /// could plant a link or a folder of their own.
@@ -128,7 +144,7 @@ index 403e9836..5402e44b 100644
  fn clipboard_dir() -> Option<std::path::PathBuf> {
      use std::path::PathBuf;
      if let Some(dir) = crate::portable::data_dir() {
-@@ -101,7 +101,7 @@ fn clipboard_dir() -> Option<std::path::PathBuf> {
+@@ -109,7 +109,7 @@ fn clipboard_dir() -> Option<std::path::PathBuf> {
  
  /// Whether `name` is a file Copy Image in Original Format writes: `<stem> p<page> img<index>.<ext>`
  /// with a JPEG or PNG extension. Only such files are ever removed from the clipboard folder.
@@ -137,7 +153,7 @@ index 403e9836..5402e44b 100644
  fn is_copied_image_name(name: &str) -> bool {
      let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
      let Some((rest, ext)) = name.rsplit_once('.') else { return false };
-@@ -116,7 +116,7 @@ fn is_copied_image_name(name: &str) -> bool {
+@@ -124,7 +124,7 @@ fn is_copied_image_name(name: &str) -> bool {
  /// Makes `dir` (a real folder, not a link, owned by us and private to us on Unix), removes the
  /// earlier copies PdfCraft wrote there, and writes `bytes` as a new file `name`. Links are never
  /// followed and nothing else in the folder is touched.
@@ -146,7 +162,7 @@ index 403e9836..5402e44b 100644
  fn write_clipboard_file(dir: &std::path::Path, name: &str, bytes: &[u8]) -> Result<std::path::PathBuf, String> {
      use std::io::Write;
      if !is_copied_image_name(name) || name.contains(['/', '\\']) {
-@@ -206,7 +206,7 @@ impl PdfCraftApp {
+@@ -216,7 +216,7 @@ impl PdfCraftApp {
  
      /// Writes `bytes` to PdfCraft's private clipboard folder ([`clipboard_dir`]), replacing the
      /// previous copy, and puts that file on the system clipboard.
@@ -155,8 +171,8 @@ index 403e9836..5402e44b 100644
      fn put_file_on_clipboard(&self, name: &str, bytes: &[u8]) -> Result<(), String> {
          if !self.system_clipboard {
              return Ok(());
-@@ -216,6 +216,16 @@ impl PdfCraftApp {
-         arboard::Clipboard::new().and_then(|mut c| c.set().file_list(&[path])).map_err(|e| e.to_string())
+@@ -226,6 +226,16 @@ impl PdfCraftApp {
+         crate::os_clipboard::with(|c| c.set().file_list(&[path])).map_err(|e| e.to_string())
      }
  
 +    /// Android has no system clipboard to put a file on (`arboard` has no backend there), so the
@@ -173,7 +189,7 @@ index 403e9836..5402e44b 100644
      fn put_file_on_clipboard(&self, _name: &str, _bytes: &[u8]) -> Result<(), String> {
          if self.system_clipboard {
 diff --git a/crates/ui-egui/src/canvas/zoom_snap.rs b/crates/ui-egui/src/canvas/zoom_snap.rs
-index 5a0dcf67..2f2a636f 100644
+index 159adf2b..87270c23 100644
 --- a/crates/ui-egui/src/canvas/zoom_snap.rs
 +++ b/crates/ui-egui/src/canvas/zoom_snap.rs
 @@ -142,7 +142,10 @@ impl PdfCraftApp {
@@ -187,9 +203,9 @@ index 5a0dcf67..2f2a636f 100644
 +        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
          if self.system_clipboard {
              let img = arboard::ImageData { width: w as usize, height: h as usize, bytes: std::borrow::Cow::Borrowed(&out.rgba) };
-             arboard::Clipboard::new().and_then(|mut c| c.set_image(img)).map_err(|e| e.to_string())?;
+             crate::os_clipboard::with(|c| c.set_image(img)).map_err(|e| e.to_string())?;
 diff --git a/crates/ui-egui/src/dialogs/comment_props.rs b/crates/ui-egui/src/dialogs/comment_props.rs
-index 4702e63f..b0971663 100644
+index 35ce510a..cead6b1c 100644
 --- a/crates/ui-egui/src/dialogs/comment_props.rs
 +++ b/crates/ui-egui/src/dialogs/comment_props.rs
 @@ -55,7 +55,7 @@ impl PdfCraftApp {
@@ -250,19 +266,19 @@ index fe9b2c37..26b016e5 100644
                  app.pin_folder(&dir.to_string_lossy());
              });
 diff --git a/crates/ui-egui/src/lib.rs b/crates/ui-egui/src/lib.rs
-index 222bb988..3d73ad04 100644
+index 643d5e90..1ebcdd28 100644
 --- a/crates/ui-egui/src/lib.rs
 +++ b/crates/ui-egui/src/lib.rs
-@@ -46,6 +46,8 @@ pub mod marks {
-     pub use crate::marks_ui::{MarksDraft, PageRange, Subset};
+@@ -48,6 +48,8 @@ pub mod marks {
  }
+ pub use content_ui::TextDraft;
  pub use create_ui::Clip;
 +#[cfg(target_os = "android")]
 +pub use create_ui::install_clipboard_text;
  pub use link_ui::LinkDraft;
  pub use optimize_ui::{OptimizeDraft, OptimizeTab};
  pub use sign_ui::{DigitalIdEntry, SignDraft, SignGraphic, SignStep};
-@@ -58,6 +60,9 @@ mod panels;
+@@ -61,6 +63,9 @@ mod panels;
  pub use print_ui::{Handling as PrintHandling, OptionsSource, PrintDraft, PrinterSource, Which as PrintWhich, system_printers};
  pub use redact_ui::{HiddenDraft, PagesDraft as RedactPagesDraft, RedactPrefs, SearchDraft as RedactSearchDraft, SearchMode as RedactSearchMode};
  pub mod i18n;
@@ -272,8 +288,17 @@ index 222bb988..3d73ad04 100644
  pub mod theme;
  mod widgets;
  
+@@ -80,7 +85,7 @@ mod state;
+ mod tools;
+ mod workflows;
+ 
+-#[cfg(not(target_arch = "wasm32"))]
++#[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+ pub(crate) mod os_clipboard;
+ 
+ #[cfg(not(target_arch = "wasm32"))]
 diff --git a/crates/ui-egui/src/platform/pickers.rs b/crates/ui-egui/src/platform/pickers.rs
-index 92852e48..9bda2d25 100644
+index 80d44d97..39ce8d23 100644
 --- a/crates/ui-egui/src/platform/pickers.rs
 +++ b/crates/ui-egui/src/platform/pickers.rs
 @@ -45,13 +45,13 @@ pub enum PickFor {
@@ -312,7 +337,7 @@ index 92852e48..9bda2d25 100644
          let started = match ask {
              Ask::File(d) => {
                  let pick = d.pick_file();
-@@ -396,9 +396,9 @@ mod tests {
+@@ -397,9 +397,9 @@ mod tests {
          app.pick_override = Some(vec!["c.pdf".into()]);
          let got = Arc::new(Mutex::new(Vec::new()));
          let first = got.clone();
@@ -324,7 +349,7 @@ index 92852e48..9bda2d25 100644
          assert!(app.toast.as_ref().is_some_and(|(m, _)| m.contains("will open when it closes")), "the user is told it will follow");
          app.process_picked();
          assert_eq!(*got.lock().unwrap(), vec!["first"], "the waiting picker shows only once the first one is answered");
-@@ -415,7 +415,7 @@ mod tests {
+@@ -416,7 +416,7 @@ mod tests {
          app.pickers.showing.store(true, Ordering::SeqCst);
          let got = Arc::new(Mutex::new(Vec::new()));
          let into = got.clone();
@@ -333,7 +358,7 @@ index 92852e48..9bda2d25 100644
          app.process_picked();
          assert!(got.lock().unwrap().is_empty(), "the showing picker still owns the flag");
          app.pickers.deliver(None, vec![], Box::new(|_, _| {}));
-@@ -486,13 +486,13 @@ mod tests {
+@@ -487,13 +487,13 @@ mod tests {
          app.pick_override = Some(vec!["first.fdf".into()]);
          let got = Arc::new(Mutex::new(Vec::new()));
          let into = got.clone();
@@ -350,11 +375,264 @@ index 92852e48..9bda2d25 100644
          for _ in 0..4 {
              app.process_picked();
          }
+diff --git a/crates/ui-egui/src/rfd.rs b/crates/ui-egui/src/rfd.rs
+new file mode 100644
+index 00000000..3e3dcf4e
+--- /dev/null
++++ b/crates/ui-egui/src/rfd.rs
+@@ -0,0 +1,35 @@
++//! The native file dialogs this crate asks for, resolved under one name on every platform:
++//! `crate::rfd`.
++//!
++//! # Why the name is resolved here and not in `Cargo.toml`
++//!
++//! Everything above `PdfCraftApp`'s own drawing wants a path the user chose, and the desktop gets
++//! one from `crate::rfd::AsyncFileDialog`: the future is created on the UI thread (macOS shows the panel
++//! there), a worker thread waits for it, and the app uses the choice on a later frame. That is the
++//! whole of `platform/pickers.rs`, and 50 call sites build a dialog with it.
++//!
++//! On Android `rfd` has no backend at all. Its `backend.rs` compiles no module for a target that
++//! is neither Linux/BSD, macOS, Windows nor wasm32: the `FilePickerDialogImpl` family is declared
++//! and nothing implements it, so the build fails at the first call with `the trait bound
++//! FileDialog: FilePickerDialogImpl is not satisfied`. Android's own picker is not a substitute —
++//! the Storage Access Framework needs `startActivityForResult`, which `android-activity` 0.6 does
++//! not expose.
++//!
++//! The shell cannot supply another crate *called* `rfd` either: Cargo refuses a dependency whose
++//! source path differs per target ("Dependency 'rfd' has different source paths depending on the
++//! build target. Each dependency must have a single canonical source path irrespective of build
++//! target."). So the name is resolved here instead. Every call site says `crate::rfd::…`, and this
++//! module is the real `rfd` wherever it exists and a host-backed stand-in on Android.
++//!
++//! Nothing about the desktop changes: `pub use ::rfd::*` is the same crate, the same types and the
++//! same behaviour it always had, reached through one extra hop.
++
++#[cfg(not(target_os = "android"))]
++pub use ::rfd::*;
++
++/// The Android stand-in, in its own file so the re-export above stays one line.
++#[cfg(target_os = "android")]
++#[path = "rfd_android.rs"]
++mod android;
++#[cfg(target_os = "android")]
++pub use android::{AsyncFileDialog, FileHandle, Kind, Request, install_picker};
+diff --git a/crates/ui-egui/src/rfd_android.rs b/crates/ui-egui/src/rfd_android.rs
+new file mode 100644
+index 00000000..aa33c4f4
+--- /dev/null
++++ b/crates/ui-egui/src/rfd_android.rs
+@@ -0,0 +1,206 @@
++//! `rfd` on Android: the same calls, answered by the host's own picker.
++//!
++//! # What this is
++//!
++//! A drop-in replacement for the small part of `rfd` this crate uses — `AsyncFileDialog` with its
++//! filters and its four `pick_*`/`save_file` futures, and `FileHandle`. The calls are unchanged;
++//! what answers them is not a native panel but the Android shell, which draws a picker with egui
++//! (it has no other way to show one) and is the only party that can.
++//!
++//! # How the answer gets back
++//!
++//! `platform/pickers.rs` creates the future on the UI thread and blocks a worker thread on it
++//! (`pollster::block_on`), because on macOS the panel has to be created on the UI thread while
++//! the waiting must not be. This keeps that shape exactly:
++//!
++//! 1. `pick_file()`/`save_file()`/… **register the request with the host immediately** — it is
++//!    called from `PdfCraftApp::ask` during `ui`, which is the only moment that has an egui frame
++//!    to draw in — and return a future that waits on a channel.
++//! 2. The shell draws the picker, and answers on that channel when the user chooses or cancels
++//!    (an empty answer means cancelled; `platform/pickers.rs` already reads that as one).
++//! 3. The worker wakes, queues the pick, and wakes the window; the app uses it on a later frame.
++//!
++//! The future blocks the thread that polls it. That is not a slip: it is a dedicated worker, which
++//! is what rfd's own Linux backend does, and the alternative — polling the channel from `poll` —
++//! would need a waker the picker has no way to reach.
++//!
++//! # When no picker is installed
++//!
++//! A test, or a host that forgot to install one, gets "cancelled" at once with an error in the
++//! log. Waiting for a dialog that can never be drawn would look like a hang.
++
++use std::future::Future;
++use std::path::{Path, PathBuf};
++use std::sync::OnceLock;
++use std::sync::mpsc::{Receiver, channel};
++
++/// Which panel was asked for.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum Kind {
++    /// One existing file.
++    File,
++    /// One or more existing files.
++    Files,
++    /// A folder.
++    Folder,
++    /// A path to save to.
++    Save,
++}
++
++/// What the picker is being asked to show.
++///
++/// `extensions` is every extension the filters named, flattened: the picker lists files, and a
++/// tablet has no room for filter group labels. An empty list means every file is listed.
++#[derive(Clone, Debug)]
++pub struct Request {
++    pub kind: Kind,
++    /// The dialog's title, as the caller set it (`set_title`).
++    pub title: Option<String>,
++    /// Extensions the listing is filtered to.
++    pub extensions: Vec<String>,
++    /// A suggested file name (`set_file_name`), for a Save panel.
++    pub suggested_name: Option<String>,
++}
++
++/// The host's picker: show `request`, and answer on the receiver it returns.
++///
++/// An empty answer means the user cancelled — never a dropped sender, which `platform/pickers.rs` would
++/// also read as cancelled but which would hide a picker that died.
++pub type Picker = Box<dyn Fn(Request) -> Receiver<Vec<PathBuf>> + Send + Sync>;
++
++/// The one picker the host installed.
++static PICKER: OnceLock<Picker> = OnceLock::new();
++
++/// Give the dialogs their implementation. Called once by the Android shell, before the first
++/// frame; a second call is logged and ignored.
++pub fn install_picker(picker: Picker) {
++    if PICKER.set(picker).is_err() {
++        log::warn!("a file picker is already installed; this one is ignored");
++    }
++}
++
++/// Ask the host to show `request`.
++fn start(request: Request) -> Receiver<Vec<PathBuf>> {
++    match PICKER.get() {
++        Some(picker) => picker(request),
++        None => {
++            log::error!("no file picker installed: {:?} is cancelled", request.kind);
++            let (answer, picks) = channel();
++            let _ = answer.send(Vec::new());
++            picks
++        }
++    }
++}
++
++/// A file the user chose.
++///
++/// rfd's `FileHandle` in one field: the path is the whole of it, because a path is what this
++/// platform can hand back — there is no `File` object to hold on to, as there is on the web.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub struct FileHandle(PathBuf);
++
++impl FileHandle {
++    /// The path the user chose.
++    pub fn path(&self) -> &Path {
++        &self.0
++    }
++
++    /// rfd's name for the same thing, kept so call sites do not care which platform they are on.
++    pub fn inner(&self) -> &Path {
++        &self.0
++    }
++
++    /// The last component of the path, as rfd's does.
++    pub fn file_name(&self) -> String {
++        self.0.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
++    }
++
++    /// The file's bytes, read now. An unreadable file logs and reads as empty, which is what rfd's
++    /// native `read` does with an I/O error.
++    pub async fn read(&self) -> Vec<u8> {
++        match std::fs::read(&self.0) {
++            Ok(bytes) => bytes,
++            Err(e) => {
++                log::error!("couldn't read {}: {e}", self.0.display());
++                Vec::new()
++            }
++        }
++    }
++}
++
++/// rfd's `AsyncFileDialog`, as far as this crate uses it: a builder, and the four futures.
++///
++/// Building one has no effect — only the `pick_*`/`save_file` call does — so a dialog built and
++/// then not used (as `files_picker(purpose)` is, on a path that returns early) shows nothing.
++#[derive(Clone, Debug, Default)]
++pub struct AsyncFileDialog {
++    title: Option<String>,
++    extensions: Vec<String>,
++    file_name: Option<String>,
++}
++
++impl AsyncFileDialog {
++    pub fn new() -> Self {
++        Self::default()
++    }
++
++    /// Add a filter. The label is dropped: the picker filters the listing by extension and has no
++    /// room for group headings — but it must be accepted, because every call site passes one.
++    pub fn add_filter(mut self, _label: impl Into<String>, extensions: &[impl ToString]) -> Self {
++        self.extensions.extend(extensions.iter().map(|e| e.to_string()));
++        self
++    }
++
++    pub fn set_title(mut self, title: impl Into<String>) -> Self {
++        self.title = Some(title.into());
++        self
++    }
++
++    pub fn set_file_name(mut self, file_name: impl Into<String>) -> Self {
++        self.file_name = Some(file_name.into());
++        self
++    }
++
++    /// Ignored, deliberately: the directory a desktop caller suggests is a desktop path, and the
++    /// picker starts in the app's own folder instead, which is the only one it knows is reachable.
++    pub fn set_directory<P: AsRef<Path>>(self, _directory: P) -> Self {
++        self
++    }
++
++    fn ask(&self, kind: Kind) -> Receiver<Vec<PathBuf>> {
++        start(Request {
++            kind,
++            title: self.title.clone(),
++            extensions: self.extensions.clone(),
++            suggested_name: self.file_name.clone(),
++        })
++    }
++
++    /// One file, or `None` when the user cancelled.
++    pub fn pick_file(self) -> impl Future<Output = Option<FileHandle>> {
++        let picks = self.ask(Kind::File);
++        async move { picks.recv().ok().and_then(|paths| paths.into_iter().next()).map(FileHandle) }
++    }
++
++    /// Several files, or `None` when the user cancelled. rfd returns `Some(vec![])` for an empty
++    /// multi-selection; `platform/pickers.rs` reads both as "nothing to do", so `None` is the honest one.
++    pub fn pick_files(self) -> impl Future<Output = Option<Vec<FileHandle>>> {
++        let picks = self.ask(Kind::Files);
++        async move {
++            let paths = picks.recv().ok().unwrap_or_default();
++            (!paths.is_empty()).then(|| paths.into_iter().map(FileHandle).collect())
++        }
++    }
++
++    /// One folder, or `None` when the user cancelled.
++    pub fn pick_folder(self) -> impl Future<Output = Option<FileHandle>> {
++        let picks = self.ask(Kind::Folder);
++        async move { picks.recv().ok().and_then(|paths| paths.into_iter().next()).map(FileHandle) }
++    }
++
++    /// A path to write to, or `None` when the user cancelled.
++    pub fn save_file(self) -> impl Future<Output = Option<FileHandle>> {
++        let picks = self.ask(Kind::Save);
++        async move { picks.recv().ok().and_then(|paths| paths.into_iter().next()).map(FileHandle) }
++    }
++}
 diff --git a/crates/ui-egui/src/tools/content_ui.rs b/crates/ui-egui/src/tools/content_ui.rs
-index e28f20e2..cfaed39c 100644
+index f6d7574e..19135f07 100644
 --- a/crates/ui-egui/src/tools/content_ui.rs
 +++ b/crates/ui-egui/src/tools/content_ui.rs
-@@ -848,7 +848,7 @@ impl crate::PdfCraftApp {
+@@ -896,7 +896,7 @@ impl crate::PdfCraftApp {
              Some(p) if p.ends_with(".png") || p.ends_with(".jpg") => read(self, p.into()),
              Some(_) => {}
              None => {
@@ -363,7 +641,7 @@ index e28f20e2..cfaed39c 100644
                      .add_filter(tl!("Images"), &["png", "jpg", "jpeg", "tif", "tiff", "gif", "bmp", "jp2", "j2k", "jpx"])
                      .set_title(title);
                  let target = self.active_ids().map(|(_, id)| id);
-@@ -908,7 +908,10 @@ impl crate::PdfCraftApp {
+@@ -956,7 +956,10 @@ impl crate::PdfCraftApp {
          }
          let Some(pixels) = self.session.get(id).map(|d| d.page_image_rgba(page, index)) else { return false };
          let copied = pixels.and_then(|(w, h, rgba)| {
@@ -374,21 +652,41 @@ index e28f20e2..cfaed39c 100644
 +            #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
              if self.system_clipboard {
                  let img = arboard::ImageData { width: w as usize, height: h as usize, bytes: std::borrow::Cow::Borrowed(&rgba) };
-                 arboard::Clipboard::new().and_then(|mut c| c.set_image(img)).map_err(|e| e.to_string())?;
-@@ -1038,7 +1041,7 @@ impl crate::PdfCraftApp {
+                 crate::os_clipboard::with(|c| c.set_image(img)).map_err(|e| e.to_string())?;
+@@ -1080,7 +1083,7 @@ impl crate::PdfCraftApp {
+         if self.clipboard_override.is_some() {
+             return false;
          }
-         let clip = match self.clipboard_override.clone() {
-             Some(c) => Some(c),
--            #[cfg(not(target_arch = "wasm32"))]
-+            #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-             None if self.system_clipboard => crate::create_ui::read_clipboard(),
-             None => None,
-         };
+-        #[cfg(not(target_arch = "wasm32"))]
++        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+         {
+             if self.system_clipboard {
+                 return matches!(crate::os_clipboard::for_image_paste(), Some(crate::create_ui::Clip::Image { .. }));
+@@ -1120,16 +1123,16 @@ impl crate::PdfCraftApp {
+     }
+ 
+     fn paste_image_internal(&mut self, page: usize, rect: Option<[f64; 4]>, at: Option<[f64; 2]>) -> bool {
+-        #[cfg(not(target_arch = "wasm32"))]
++        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+         let system = if self.clipboard_override.is_none() && self.system_clipboard { crate::os_clipboard::for_image_paste() } else { None };
+-        #[cfg(target_arch = "wasm32")]
++        #[cfg(any(target_arch = "wasm32", target_os = "android"))]
+         let system = None;
+         self.paste_image_with_system(
+             page,
+             rect,
+             at,
+             system,
+-            cfg!(not(target_arch = "wasm32")) && self.system_clipboard,
++            cfg!(all(not(target_arch = "wasm32"), not(target_os = "android"))) && self.system_clipboard,
+             self.clipboard_override.clone(),
+         )
+     }
 diff --git a/crates/ui-egui/src/tools/fill_sign.rs b/crates/ui-egui/src/tools/fill_sign.rs
-index 045bb649..667756bf 100644
+index 597e139c..142d4055 100644
 --- a/crates/ui-egui/src/tools/fill_sign.rs
 +++ b/crates/ui-egui/src/tools/fill_sign.rs
-@@ -780,7 +780,7 @@ impl crate::PdfCraftApp {
+@@ -786,7 +786,7 @@ impl crate::PdfCraftApp {
          let epoch = self.dialog_epoch();
          let initials = self.signature_draft.initials;
          let scan = self.signature_draft.scan_mode;
@@ -411,7 +709,7 @@ index 5008464a..d93aa8f6 100644
                      }
                  }
 diff --git a/crates/ui-egui/src/tools/sign_ui.rs b/crates/ui-egui/src/tools/sign_ui.rs
-index b00d0727..9af81c6f 100644
+index 8d357650..99802167 100644
 --- a/crates/ui-egui/src/tools/sign_ui.rs
 +++ b/crates/ui-egui/src/tools/sign_ui.rs
 @@ -501,7 +501,7 @@ impl PdfCraftApp {
@@ -494,10 +792,10 @@ index 594b5f74..076310f9 100644
          }
          #[cfg(target_arch = "wasm32")]
 diff --git a/crates/ui-egui/src/workflows/create_ui.rs b/crates/ui-egui/src/workflows/create_ui.rs
-index 6dceb506..13485639 100644
+index 5a6c9caf..198cd8c1 100644
 --- a/crates/ui-egui/src/workflows/create_ui.rs
 +++ b/crates/ui-egui/src/workflows/create_ui.rs
-@@ -56,8 +56,28 @@ pub enum Clip {
+@@ -56,11 +56,28 @@ pub enum Clip {
      Text(String),
  }
  
@@ -519,16 +817,16 @@ index 6dceb506..13485639 100644
 +}
 +
  /// An image on the system clipboard, or else its text.
+ pub(crate) const MAX_IMAGE_SIDE: usize = 16384;
+ pub(crate) const MAX_IMAGE_BYTES: usize = 64 * 1024 * 1024;
+ 
 -#[cfg(not(target_arch = "wasm32"))]
-+///
-+/// Not built for wasm32: the browser clipboard is only readable from a user gesture, so the caller
-+/// says the clipboard is empty ("The clipboard has no image or text").
 +#[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
  pub(crate) fn read_clipboard() -> Option<Clip> {
-     let mut cb = arboard::Clipboard::new().ok()?;
-     if let Ok(img) = cb.get_image() {
-@@ -66,6 +86,13 @@ pub(crate) fn read_clipboard() -> Option<Clip> {
-     cb.get_text().ok().filter(|t| !t.trim().is_empty()).map(Clip::Text)
+     crate::os_clipboard::with(|cb| {
+         if let Ok(img) = cb.get_image() {
+@@ -82,6 +99,13 @@ pub(crate) fn read_clipboard() -> Option<Clip> {
+     .flatten()
  }
  
 +/// Android: text only. The shell's reader answers for text; there is no `arboard` image read.
@@ -540,8 +838,8 @@ index 6dceb506..13485639 100644
 +
  pub(crate) fn png_from_rgba(width: usize, height: usize, rgba: &[u8]) -> Result<Vec<u8>, String> {
      let (w, h) = (u32::try_from(width).map_err(|e| e.to_string())?, u32::try_from(height).map_err(|e| e.to_string())?);
-     if w == 0 || h == 0 || rgba.len() != width * height * 4 {
-@@ -153,7 +180,7 @@ impl PdfCraftApp {
+     let expected = width.checked_mul(height).and_then(|p| p.checked_mul(4));
+@@ -171,7 +195,7 @@ impl PdfCraftApp {
      pub(crate) fn create_from_images_dialog(&mut self) {
          #[cfg(not(target_arch = "wasm32"))]
          {
@@ -550,7 +848,7 @@ index 6dceb506..13485639 100644
                  .add_filter(tl!("Images"), &["png", "jpg", "jpeg", "tif", "tiff", "gif", "bmp", "jp2", "j2k", "jpx"])
                  .set_title(tl!("Choose images"));
              self.ask(crate::pickers::Ask::Files(dialog), None, |app, files| {
-@@ -285,7 +312,7 @@ impl PdfCraftApp {
+@@ -303,7 +327,7 @@ impl PdfCraftApp {
              match self.save_override.clone() {
                  Some(p) => write(self, p),
                  None => {
@@ -573,10 +871,10 @@ index 5435531e..b5947bc3 100644
                  }
              }
 diff --git a/crates/ui-egui/src/workflows/files.rs b/crates/ui-egui/src/workflows/files.rs
-index a9313a47..d34bf2e6 100644
+index adb5e2f0..a4239e48 100644
 --- a/crates/ui-egui/src/workflows/files.rs
 +++ b/crates/ui-egui/src/workflows/files.rs
-@@ -58,8 +58,8 @@ pub(crate) fn installed_font_files(ctx: &egui::Context) -> Option<Vec<pdfcraft_e
+@@ -90,8 +90,8 @@ pub(crate) fn installed_font_files(ctx: &egui::Context, reload: bool) -> Option<
  }
  
  /// The picker for `purpose`: PDFs, and for Create and Insert also what they convert.
@@ -587,7 +885,7 @@ index a9313a47..d34bf2e6 100644
      if matches!(purpose, FilePurpose::TextFont { .. }) {
          return dialog.add_filter("TrueType / OpenType font", &["ttf", "otf"]);
      }
-@@ -366,7 +366,7 @@ impl PdfCraftApp {
+@@ -398,7 +398,7 @@ impl PdfCraftApp {
                      Some(dir) => convert(self, std::path::PathBuf::from(dir)),
                      None => {
                          self.ask_one(
@@ -596,7 +894,7 @@ index a9313a47..d34bf2e6 100644
                              None,
                              convert,
                          );
-@@ -747,7 +747,7 @@ impl PdfCraftApp {
+@@ -779,7 +779,7 @@ impl PdfCraftApp {
              match &self.export_dir_override {
                  Some(d) => write(self, std::path::PathBuf::from(d)),
                  None => {
@@ -605,7 +903,7 @@ index a9313a47..d34bf2e6 100644
                  }
              }
          }
-@@ -897,7 +897,7 @@ impl PdfCraftApp {
+@@ -929,7 +929,7 @@ impl PdfCraftApp {
                  Some(p) if extensions.iter().any(|e| p.ends_with(&format!(".{e}"))) => import(self, p.into()),
                  Some(_) => {}
                  None => {
@@ -614,7 +912,7 @@ index a9313a47..d34bf2e6 100644
                          .add_filter(tl!("Comment and form data").to_string(), &extensions)
                          .set_title(tl!("Import data").to_string());
                      let target = self.active_ids().map(|(_, id)| id);
-@@ -937,7 +937,7 @@ impl PdfCraftApp {
+@@ -969,7 +969,7 @@ impl PdfCraftApp {
              match self.save_override.clone() {
                  Some(p) => write(self, p.into()),
                  None => {
@@ -623,7 +921,7 @@ index a9313a47..d34bf2e6 100644
                          .set_title(tl!("Export").to_string())
                          .add_filter(ext.to_uppercase(), &[ext])
                          .set_file_name(format!("{stem}.{ext}"));
-@@ -957,7 +957,7 @@ impl PdfCraftApp {
+@@ -989,7 +989,7 @@ impl PdfCraftApp {
      pub fn merge_data_dialog(&mut self) {
          #[cfg(not(target_arch = "wasm32"))]
          {
@@ -632,7 +930,7 @@ index a9313a47..d34bf2e6 100644
                  .set_title(tl!("Select data files to merge").to_string())
                  .add_filter(tl!("Form data and PDF forms").to_string(), &["fdf", "xfdf", "pdf"]);
              self.ask(crate::pickers::Ask::Files(dialog), None, |app, paths| {
-@@ -1002,7 +1002,7 @@ impl PdfCraftApp {
+@@ -1034,7 +1034,7 @@ impl PdfCraftApp {
              match self.save_override.clone() {
                  Some(p) => write(self, p.into()),
                  None => {
@@ -641,7 +939,7 @@ index a9313a47..d34bf2e6 100644
                          .set_title(tl!("Save the spreadsheet").to_string())
                          .add_filter("CSV", &["csv"])
                          .set_file_name("report.csv");
-@@ -1045,7 +1045,7 @@ impl PdfCraftApp {
+@@ -1077,7 +1077,7 @@ impl PdfCraftApp {
                  Some(p) => write(self, p.into()),
                  None => {
                      let title = if comments { tl!("Export comments") } else { tl!("Export form data") };

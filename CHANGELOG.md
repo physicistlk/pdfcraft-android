@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-11-04 — Upstream 0.18.1
+
+| | |
+|---|---|
+| APK | `pdfcraft-0.18.1-arm64-v8a-20261104.apk` — sha256 in `SHA256SUMS.txt` beside the build |
+| Built from | upstream `storytold/pdfcraft` @ `8bb0528bed78` (tag `v0.18.1`) + `patches/0001-pdfcraft-android-port.patch` + `apps/pdfcraft-android/` |
+| Package | `ai.storyteller.pdfcraft` — unchanged; versionName `0.18.1`, versionCode `16781825`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+| Signature | local test key (`.pdfcraft-signing/pdfcraft-test.jks`) |
+| sha256 | `43c529c4bf522c0be7e2771d63fd38049570c5feafbd056967918ee3d21f20d7` |
+
+### Changed
+- **Upstream moved from 0.15.0 to 0.18.1.** The port's shape is unchanged: the `rfd` name is still resolved inside `crates/ui-egui` (`src/rfd.rs`, now part of the patch as a new file, with `src/rfd_android.rs`), `arboard` is still not built for Android, and the patched `vendor/winit` (with `ImeResetCompleted` / `reset_ime_with_request`, required by the pinned egui) is restored on top of the vendored tree — it is not in the patch itself.
+- **New `os_clipboard.rs` (v0.17+) is Android-gated.** v0.17 introduced `os_clipboard` wrapping `arboard`; the module and all its call sites (`create_ui.rs`, `content_ui.rs`, `zoom_snap.rs`, `app/clipboard.rs`) now exclude `target_os = "android"`, matching the existing wasm32 fallbacks. The Android text-clipboard hook (`install_clipboard_text`) is re-added in `workflows/create_ui.rs` and re-exported from `lib.rs`.
+- **Verified:** `cargo check -p pdfcraft-ui-egui` (host) and `cargo check -p pdfcraft-android --target aarch64-linux-android` pass; `cargo apk build --release -p pdfcraft-android` (6m42s) produced a 26 MB signed APK; `aapt2 dump badging` shows `ai.storyteller.pdfcraft` `0.18.1` `arm64-v8a`; `apksigner verify` v2/v3 true; all ELF LOAD segments 16 KB-aligned; `patches/0001-pdfcraft-android-port.patch` applies cleanly to pristine `v0.18.1`.
+
+
 ## 2026-10-30 — The system clipboard (text)
 
 | | |
