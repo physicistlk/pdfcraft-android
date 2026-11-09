@@ -329,7 +329,7 @@ impl eframe::App for Shell {
         eframe::App::save(&mut self.inner, storage);
     }
 
-    fn on_exit(&mut self) {
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         let bytes = prefs_bytes(&self.inner);
         self.prefs.store_now(&bytes);
     }

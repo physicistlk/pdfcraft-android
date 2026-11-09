@@ -6,12 +6,12 @@ and egui interface, packaged as a NativeActivity APK for sideloading on arm64 de
 | | |
 |---|---|
 | Upstream project | [`storytold/pdfcraft`](https://github.com/storytold/pdfcraft) — Apache-2.0 OR MIT |
-| Pinned commit | `8bb0528b` (upstream version `0.18.1`) — was `75360d1d` (`0.15.0`), previously `3d2bdfe` (`0.6.0`) |
+| Pinned commit | `2ad7717f8` (upstream version `0.20.0`) — was `8bb0528b` (`0.18.1`), previously `75360d1d` (`0.15.0`) |
 | Android package | `ai.storyteller.pdfcraft` |
-| Published APK | `pdfcraft-0.6.0-arm64-v8a-20261013b.apk` — 21.8 MB, arm64-v8a, signed (release **v0.1.2**, 2026-10-13) |
-| APK sha256 | `0619612b7d8cfcb76690e7d12302c463aa234d939ebece8353238e6a54f7b9ce` |
-| Upstream files changed | 27 files (2 of them new: `rfd.rs`, `rfd_android.rs`) — see [`patches/`](patches/) |
-| New port crate | `apps/pdfcraft-android/` — 1280 lines of Rust plus resources |
+| Current APK | `pdfcraft-0.20.0-arm64-v8a-20261109.apk` — 28.3 MB, arm64-v8a, signed (local build, 2026-11-09) |
+| APK sha256 | `58028d88e9a5a8b1f0f71969458c0e4dc26946220ee724de788b76c20a37a3bf` |
+| Upstream files changed | 31 files (2 of them new: `rfd.rs`, `rfd_android.rs`) — see [`patches/`](patches/); the patched `vendor/winit/` is shipped as a directory, not in the patch |
+| New port crate | `apps/pdfcraft-android/` — 2050 lines of Rust plus resources |
 
 ## What this repository is
 
@@ -37,10 +37,12 @@ JDK 21, and `cargo install cargo-apk`.
 ```bash
 git clone https://github.com/storytold/pdfcraft.git
 cd pdfcraft
-git fetch --depth 1 origin 24bb8530
+git fetch --depth 1 origin 2ad7717f8
 git checkout FETCH_HEAD                        # the exact commit this port targets
 git apply -3 /path/to/0001-pdfcraft-android-port.patch
-cp -r /path/to/pdfcraft-android apps/             # the shell crate from this repository
+cp -r /path/to/pdfcraft-android/apps/pdfcraft-android apps/   # the shell crate from this repository
+# the patched winit (ImeResetCompleted / reset_ime_with_request, required by the pinned egui-winit)
+rm -rf vendor/winit && cp -r /path/to/pdfcraft-android/vendor/winit vendor/winit
 
 # any keystore of your own signs an installable APK; a throwaway test key is fine for sideloading
 keytool -genkeypair -keystore ks.jks -alias pdfcraft -keyalg RSA -keysize 2048 -validity 10000 \
@@ -57,7 +59,7 @@ on the `.so` inside the APK.
 ## Install
 
 ```bash
-adb install -r pdfcraft-0.15.0-arm64-v8a-20261028.apk
+adb install -r pdfcraft-0.20.0-arm64-v8a-20261109.apk
 ```
 or copy the APK to the device and open it (installing from unknown sources must be allowed).
 

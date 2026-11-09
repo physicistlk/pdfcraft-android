@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-11-09 — Upstream 0.20.0
+
+| | |
+|---|---|
+| APK | `pdfcraft-0.20.0-arm64-v8a-20261109.apk` — sha256 in `SHA256SUMS.txt` beside the build |
+| Built from | upstream `storytold/pdfcraft` @ `2ad7717f87ad` (tag `v0.20.0`) + `patches/0001-pdfcraft-android-port.patch` + `apps/pdfcraft-android/` + the patched `vendor/winit/` |
+| Package | `ai.storyteller.pdfcraft` — unchanged; versionName `0.20.0`, versionCode `16782336`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+| Signature | local test key (`.pdfcraft-signing/pdfcraft-test.jks`) |
+| sha256 | `58028d88e9a5a8b1f0f71969458c0e4dc26946220ee724de788b76c20a37a3bf` |
+
+### Changed
+- **Upstream moved from 0.19.0 to 0.20.0** (870 commits; the 0.19.0 round was not recorded here).
+  The port's shape is unchanged: the `rfd` name is still resolved inside `crates/ui-egui`
+  (`src/rfd.rs` + `src/rfd_android.rs`), `arboard` is still not built for Android, and the patched
+  `vendor/winit` (with `ImeResetCompleted` / `reset_ime_with_request`, required by the pinned
+  egui-winit `6d518fc`) is refreshed from this repository — it is not in the patch.
+- **`eframe::App::on_exit` now takes `Option<&eframe::glow::Context>`.** The shell's `impl
+  eframe::App for Shell` was updated to the new signature. `pdfcraft-ui-egui` keeps upstream's
+  new always-on `glow` eframe feature (its `on_exit` needs a GL context), while still excluding
+  `accesskit` from the main eframe line so the shell's `android-native-activity` can coexist with it.
+- **Copy with formatting (new upstream rich-text clipboard) is plain text on Android.** v0.20 added
+  `app::put_rich_text` / `takes_html` and the `os_clipboard: Option<arboard::Clipboard>` field;
+  `arboard` has no Android backend, so the field, its initialiser, `takes_html` and `put_rich_text`
+  are all gated off `target_os = "android"` (the same shape as the existing wasm32 fallback), and
+  the call falls back to `Context::copy_text` — consistent with the port's text-only clipboard.
+- **`create_ui::save_optimized` merged with upstream's new re-ask flow.** Upstream added
+  `destination` / `chose_first` and `ask_where_to_save_optimized`; the port keeps its
+  `save_override` arm (`destination.or_else(|| self.save_override.clone())`) and the new helper
+  asks through `crate::rfd::AsyncFileDialog`, so the Android SAF picker is still used.
+- **Verified:** `cargo check -p pdfcraft-android --target aarch64-linux-android` exits 0;
+  `cargo apk build --release -p pdfcraft-android` produced a 29.7 MB signed APK;
+  `aapt2 dump badging` shows `ai.storyteller.pdfcraft` `0.20.0` `arm64-v8a`;
+  `apksigner verify` shows the local test certificate; every ELF LOAD segment is 0x4000-aligned
+  (16 KB); `patches/0001-pdfcraft-android-port.patch` passes `git apply --check` on a pristine
+  `git archive v0.20.0` tree with `apps/pdfcraft-android/` and `vendor/winit` copied in, and
+  reproduces the built tree exactly.
+
 ## 2026-11-04 — Upstream 0.18.1
 
 | | |
