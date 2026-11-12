@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-11-12 — Upstream 0.21.1
+
+| | |
+|---|---|
+| APK | `pdfcraft-0.21.1-arm64-v8a-20261112.apk` — sha256 in `SHA256SUMS.txt` beside the build |
+| Built from | upstream `storytold/pdfcraft` @ `b503b2e62dfeec5598f344e4e287d9c9cbdb34fa` (tag `v0.21.1`) + `patches/0001-pdfcraft-android-port.patch` + `apps/pdfcraft-android/` + the patched `vendor/winit/` |
+| Package | `ai.storyteller.pdfcraft` — unchanged; versionName `0.21.1`, versionCode `16782593`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+| Signature | local test key (`.pdfcraft-signing/pdfcraft-test.jks`) |
+| sha256 | `759dddba8a1394c2462065589761298c27d25183a6f7d58515235738d09f12cc` |
+
+### Changed
+- **Upstream moved from 0.20.0 to 0.21.1** (1087 commits; this tag carries the 0.21.0 major bump
+  plus the 0.21.1 patch). The port's shape is unchanged: `crate::rfd` still stands in for `rfd` on
+  Android (`src/rfd.rs` + `src/rfd_android.rs`), `arboard` is still not built for Android, and the
+  patched `vendor/winit` (with `ImeResetCompleted` / `reset_ime_with_request`, required by the
+  pinned egui-winit) is refreshed from this repository — it is not in the patch.
+- **The egui pin moved with upstream** from `6d518fc` to `725a39f` (fourteen `[patch.crates-io]`
+  lines). Upstream's `vendor/winit` still lacks the port's IME variant, so the worktree's copy is
+  replaced wholesale from `vendor/winit` here; only `winit = { path = "vendor/winit" }` is a port
+  change in `Cargo.toml`.
+- **File ▸ Open keeps upstream's new filter list.** v0.21 added `open_filters()` (PDF, Images,
+  Office documents, Text, All files) plus `open_picker()`, for opening Word/Excel/PowerPoint
+  through LibreOffice. The port keeps that list and routes the one picker creation through
+  `crate::rfd::AsyncFileDialog`, so the Android SAF picker still answers it; the three old inline
+  `crate::rfd` pickers are gone, superseded by `open_picker()`.
+- **Take a Snapshot follows upstream's split.** v0.21 moved the clipboard write out of
+  `render_area` and into `snapshot()` (which now receives the pixels). The port re-applied its
+  `all(not(target_arch = "wasm32"), not(target_os = "android"))` gate to the new `snapshot()`
+  body, so a snapshot is still taken and kept in `last_snapshot` while the OS-wide image clipboard
+  stays unavailable, as on the web. The new "Save as image" dialog in the same file now asks
+  through `crate::rfd` too.
+- **Verified:** `cargo check -p pdfcraft-android --target aarch64-linux-android` exits 0;
+  `cargo apk build --release -p pdfcraft-android` produced a 29.3 MiB signed APK;
+  `aapt2 dump badging` shows `ai.storyteller.pdfcraft` `0.21.1` `arm64-v8a`;
+  `apksigner verify` shows v2/v3 signatures from the local test certificate; every ELF LOAD
+  segment is 0x4000-aligned (16 KB); `patches/0001-pdfcraft-android-port.patch` passes
+  `git apply --check` on a pristine `git archive v0.21.1` tree with `apps/pdfcraft-android/` and
+  `vendor/winit` copied in, and reproduces the built tree exactly (all 31 patched files compare
+  equal).
+
 ## 2026-11-09 — Upstream 0.20.0
 
 | | |

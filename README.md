@@ -6,10 +6,10 @@ and egui interface, packaged as a NativeActivity APK for sideloading on arm64 de
 | | |
 |---|---|
 | Upstream project | [`storytold/pdfcraft`](https://github.com/storytold/pdfcraft) — Apache-2.0 OR MIT |
-| Pinned commit | `2ad7717f8` (upstream version `0.20.0`) — was `8bb0528b` (`0.18.1`), previously `75360d1d` (`0.15.0`) |
+| Pinned commit | `b503b2e62` (upstream version `0.21.1`) — was `2ad7717f8` (`0.20.0`), previously `8bb0528b` (`0.18.1`) |
 | Android package | `ai.storyteller.pdfcraft` |
-| Current APK | `pdfcraft-0.20.0-arm64-v8a-20261109.apk` — 28.3 MB, arm64-v8a, signed (local build, 2026-11-09) |
-| APK sha256 | `58028d88e9a5a8b1f0f71969458c0e4dc26946220ee724de788b76c20a37a3bf` |
+| Current APK | `pdfcraft-0.21.1-arm64-v8a-20261112.apk` — 29.3 MB, arm64-v8a, signed (local build, 2026-11-12) |
+| APK sha256 | `759dddba8a1394c2462065589761298c27d25183a6f7d58515235738d09f12cc` |
 | Upstream files changed | 31 files (2 of them new: `rfd.rs`, `rfd_android.rs`) — see [`patches/`](patches/); the patched `vendor/winit/` is shipped as a directory, not in the patch |
 | New port crate | `apps/pdfcraft-android/` — 2050 lines of Rust plus resources |
 
@@ -37,7 +37,7 @@ JDK 21, and `cargo install cargo-apk`.
 ```bash
 git clone https://github.com/storytold/pdfcraft.git
 cd pdfcraft
-git fetch --depth 1 origin 2ad7717f8
+git fetch --depth 1 origin b503b2e62
 git checkout FETCH_HEAD                        # the exact commit this port targets
 git apply -3 /path/to/0001-pdfcraft-android-port.patch
 cp -r /path/to/pdfcraft-android/apps/pdfcraft-android apps/   # the shell crate from this repository
@@ -59,7 +59,7 @@ on the `.so` inside the APK.
 ## Install
 
 ```bash
-adb install -r pdfcraft-0.20.0-arm64-v8a-20261109.apk
+adb install -r pdfcraft-0.21.1-arm64-v8a-20261112.apk
 ```
 or copy the APK to the device and open it (installing from unknown sources must be allowed).
 
