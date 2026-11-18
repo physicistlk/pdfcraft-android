@@ -8,8 +8,8 @@ and egui interface, packaged as a NativeActivity APK for sideloading on arm64 de
 | Upstream project | [`storytold/pdfcraft`](https://github.com/storytold/pdfcraft) — Apache-2.0 OR MIT |
 | Pinned commit | `b503b2e62` (upstream version `0.21.1`) — was `2ad7717f8` (`0.20.0`), previously `8bb0528b` (`0.18.1`) |
 | Android package | `ai.storyteller.pdfcraft` |
-| Current APK | `pdfcraft-0.21.1-arm64-v8a-20261112.apk` — 29.3 MB, arm64-v8a, signed (local build, 2026-11-12) |
-| APK sha256 | `759dddba8a1394c2462065589761298c27d25183a6f7d58515235738d09f12cc` |
+| Current APK | `pdfcraft-0.21.1-arm64-v8a-20261118.apk` — 29.3 MB, arm64-v8a, signed (local build, 2026-11-18) |
+| APK sha256 | `412045934226c98c60132ccc2f6466ecb96bc7b6800e0699c0bbb73678914f23` |
 | Upstream files changed | 31 files (2 of them new: `rfd.rs`, `rfd_android.rs`) — see [`patches/`](patches/); the patched `vendor/winit/` is shipped as a directory, not in the patch |
 | New port crate | `apps/pdfcraft-android/` — 2050 lines of Rust plus resources |
 
@@ -59,7 +59,7 @@ on the `.so` inside the APK.
 ## Install
 
 ```bash
-adb install -r pdfcraft-0.21.1-arm64-v8a-20261112.apk
+adb install -r pdfcraft-0.21.1-arm64-v8a-20261118.apk
 ```
 or copy the APK to the device and open it (installing from unknown sources must be allowed).
 

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-11-18 — Physical mouse: right button is a real secondary click
+
+| | |
+|---|---|
+| APK | `pdfcraft-0.21.1-arm64-v8a-20261118.apk` |
+| Built from | the same upstream pin `b503b2e62dfeec5598f344e4e287d9c9cbdb34fa` (tag `v0.21.1`) + `patches/0001-pdfcraft-android-port.patch` + `apps/pdfcraft-android/` + the patched `vendor/winit/` |
+| Package | `ai.storyteller.pdfcraft` — unchanged; versionName `0.21.1`, versionCode `16782593`, minSdk 26, targetSdk 35 |
+| ABI | `arm64-v8a` only |
+| Signature | local test key (`.pdfcraft-signing/pdfcraft-test.jks`) |
+| sha256 | `412045934226c98c60132ccc2f6466ecb96bc7b6800e0699c0bbb73678914f23` |
+
+### Changed
+- **Physical mouse: right button is a real secondary click; long-press-to-context-menu no longer
+  applies to a mouse.** `vendor/winit`'s Android backend turned every mouse/trackpad motion event
+  into a `Touch` event, so egui saw a pointer device as a touch screen: the right button arrived as
+  an ordinary tap and the only route to a context menu was a long press. A physical mouse or
+  trackpad (`Source::Mouse`/`Source::MouseRelative` or `ToolType::Mouse`) is now reported as
+  `CursorMoved` + `MouseInput` (left/right/middle derived by diffing `button_state()`), so the right
+  button is a true secondary click and egui's long-press heuristic — which needs `any_touches()` —
+  stops firing for it. Finger input is untouched, and a device that reports no button state keeps
+  the old touch path.
+  The fix is in `vendor/winit/` only (shipped as a directory, not in the patch); the 31-file port
+  patch is byte-identical to the 2026-11-12 one, and no app-side code changed.
+- **Verified:** `cargo check -p pdfcraft-android --target aarch64-linux-android` exits 0;
+  `cargo apk build --release -p pdfcraft-android` produced a 29.3 MiB signed APK;
+  `aapt2 dump badging` still shows `ai.storyteller.pdfcraft` `0.21.1` `arm64-v8a`;
+  `apksigner verify` shows v2/v3 signatures from the local test certificate; every ELF LOAD
+  segment is 0x4000-aligned (16 KB); `patches/0001-pdfcraft-android-port.patch` passes
+  `git apply --check` on a pristine `git archive v0.21.1` tree with `apps/pdfcraft-android/` and
+  `vendor/` copied in.
+
 ## 2026-11-12 — Upstream 0.21.1
 
 | | |
